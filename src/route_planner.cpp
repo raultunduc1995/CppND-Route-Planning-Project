@@ -22,7 +22,7 @@ RoutePlanner::RoutePlanner(RouteModel &model, float start_x, float start_y, floa
 
 float RoutePlanner::CalculateHValue(RouteModel::Node const *node)
 {
-    return node ? end_node->distance(*node) : 0.0;
+    return node ? node->distance(*end_node) : 0.0;
 }
 
 // TODO 4: Complete the AddNeighbors method to expand the current node by adding all unvisited neighbors to the open list.
@@ -39,11 +39,13 @@ void RoutePlanner::AddNeighbors(RouteModel::Node *current_node)
     current_node->FindNeighbors();
     for (auto *node : current_node->neighbors)
     {
+        if (node->visited)
+            continue;
         node->parent = current_node;
         node->h_value = CalculateHValue(node);
-        node->g_value += node->distance(*current_node);
-        node->visited = true;
+        node->g_value = current_node->g_value + node->distance(*current_node);
         open_list.push_back(node);
+        node->visited = true;
     }
 }
 
@@ -59,7 +61,7 @@ RouteModel::Node *RoutePlanner::NextNode()
     std::sort(open_list.begin(),
               open_list.end(),
               [](RouteModel::Node *a, RouteModel::Node *b) {
-                  return (a->g_value + a->h_value) < (b->g_value + b->h_value);
+                  return (a->h_value + a->g_value) < (b->h_value + b->g_value);
               });
     auto *first_node = open_list.front();
     open_list.erase(open_list.begin());
@@ -83,7 +85,7 @@ std::vector<RouteModel::Node> RoutePlanner::ConstructFinalPath(RouteModel::Node 
         return path_found;
     // TODO: Implement your solution here.
     path_found.emplace_back(*current_node);
-    while (current_node->parent != nullptr)
+    while (current_node != start_node)
     {
         distance += current_node->distance(*current_node->parent);
         current_node = current_node->parent;
@@ -106,11 +108,11 @@ void RoutePlanner::AStarSearch()
     RouteModel::Node *current_node = nullptr;
     // TODO: Implement your solution here.
     start_node->parent = nullptr;
-    start_node->h_value = CalculateHValue(start_node);
-    start_node->g_value = 0;
     start_node->visited = true;
-    open_list.emplace_back(start_node);
-    while (!open_list.empty())
+    start_node->g_value = 0;
+    start_node->h_value = CalculateHValue(start_node);
+    AddNeighbors(start_node);
+    while (open_list.size() > 0)
     {
         current_node = NextNode();
         if (current_node == end_node)
